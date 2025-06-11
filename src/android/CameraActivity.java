@@ -770,56 +770,63 @@ public class CameraActivity extends Fragment {
 
       try {
         mRecorder.setCamera(mCamera);
-
-        CamcorderProfile profile;
-        if (CamcorderProfile.hasProfile(defaultCameraId, CamcorderProfile.QUALITY_HIGH)) {
-          profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_HIGH);
-        } else {
-          if (CamcorderProfile.hasProfile(defaultCameraId, CamcorderProfile.QUALITY_480P)) {
-            profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_480P);
-          } else {
-            if (CamcorderProfile.hasProfile(defaultCameraId, CamcorderProfile.QUALITY_720P)) {
-              profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_720P);
-            } else {
-              if (CamcorderProfile.hasProfile(defaultCameraId, CamcorderProfile.QUALITY_1080P)) {
-                profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_1080P);
-              } else {
-                profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_LOW);
-              }
-            }
-          }
-        }
-
-
-        mRecorder.setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION);
+        
+        // Solo configurar video, SIN audio
         mRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-        mRecorder.setProfile(profile);
+        
+        // Configurar manualmente el formato sin audio
+        mRecorder.setOutputFormat(MediaRecorder.OutputFormat.MP4);
+        mRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+        
+        // Configurar resolución y bitrate para video
+        Camera.Size videoSize = getBestVideoSize();
+        mRecorder.setVideoSize(videoSize.width, videoSize.height);
+        mRecorder.setVideoFrameRate(30);
+        mRecorder.setVideoEncodingBitRate(3000000); // 3 Mbps
+        
         mRecorder.setOutputFile(filePath);
         mRecorder.setOrientationHint(mOrientationHint);
 
         mRecorder.prepare();
-        Log.d(TAG, "Starting recording");
+        Log.d(TAG, "Starting recording WITHOUT audio");
         mRecorder.start();
         eventListener.onStartRecordVideo();
+        
       } catch (IOException ioException) {
-        Log.e(TAG, "Recording failed, file issue", ioException);
-        eventListener.onStartRecordVideoError(ioException.getMessage());
-
-        mRecorder = null;
+          Log.e(TAG, "Recording failed, file issue", ioException);
+          eventListener.onStartRecordVideoError(ioException.getMessage());
+          mRecorder = null;
       } catch (IllegalStateException stateException) {
-        Log.e(TAG, "Recording failed, audio/video may be in use by another application", stateException);
-        eventListener.onStartRecordVideoError("Failed to start recording, your audio or video may be in use by another application");
-
-        mRecorder = null;
+          Log.e(TAG, "Recording failed", stateException);
+          eventListener.onStartRecordVideoError("Failed to start recording");
+          mRecorder = null;
       } catch (Exception exception) {
-        Log.e(TAG, "Recording failed, unknown", exception);
-        eventListener.onStartRecordVideoError(exception.getMessage());
-
-        mRecorder = null;
+          Log.e(TAG, "Recording failed, unknown", exception);
+          eventListener.onStartRecordVideoError(exception.getMessage());
+          mRecorder = null;
       }
     } else {
       Log.d(TAG, "Requiring RECORD_AUDIO permission to continue");
     }
+  }
+
+  private Camera.Size getBestVideoSize() {
+    Camera.Parameters params = mCamera.getParameters();
+    List<Camera.Size> supportedVideoSizes = params.getSupportedVideoSizes();
+    
+    if (supportedVideoSizes == null) {
+        supportedVideoSizes = params.getSupportedPreviewSizes();
+    }
+    
+    // Buscar una resolución común como 1280x720 o similar
+    for (Camera.Size size : supportedVideoSizes) {
+        if (size.width == 1280 && size.height == 720) {
+            return size;
+        }
+    }
+    
+    // Si no encuentra 720p, usar la primera disponible
+    return supportedVideoSizes.get(0);
   }
 
   public int calculateOrientationHint() {
