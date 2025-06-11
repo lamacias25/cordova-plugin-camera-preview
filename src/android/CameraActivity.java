@@ -731,7 +731,7 @@ public class CameraActivity extends Fragment {
     }
   }
 
-  public void startRecord(final String filePath, final String camera, final int width, final int height, final int quality, final boolean withFlash, final boolean withAudio){
+  public void startRecord(final String filePath, final String camera, final int width, final int height, final int quality, final boolean withFlash, final boolean withAudio = false){
     Log.d(TAG, "CameraPreview startRecord camera: " + camera + " width: " + width + ", height: " + height + ", quality: " + quality + ", withAudio: " + withAudio);
     
     this.enableAudio = withAudio;
