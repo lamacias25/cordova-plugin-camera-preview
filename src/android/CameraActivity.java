@@ -20,6 +20,7 @@ import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.ShutterCallback;
 import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
+//import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -56,6 +57,8 @@ import java.util.Arrays;
 import java.util.UUID;
 
 public class CameraActivity extends Fragment {
+
+  public boolean enableAudio = false;
 
   public interface CameraPreviewListener {
     void onPictureTaken(String originalPicture);
@@ -728,98 +731,76 @@ public class CameraActivity extends Fragment {
     }
   }
 
-  public void startRecord(final String filePath, final String camera, final int width, final int height, final int quality, final boolean withFlash){
-    Log.d(TAG, "CameraPreview startRecord camera: " + camera + " width: " + width + ", height: " + height + ", quality: " + quality);
+  public void startRecord(final String filePath, final String camera, final int width, final int height, final int quality, final boolean withFlash, final boolean withAudio){
+    Log.d(TAG, "CameraPreview startRecord camera: " + camera + " width: " + width + ", height: " + height + ", quality: " + quality + ", withAudio: " + withAudio);
+    
+    this.enableAudio = withAudio;
+    
     if(mCamera != null) {
-      Activity activity = getActivity();
-      muteStream(true, activity);
-      if (this.mRecordingState == RecordingState.STARTED) {
-        Log.d(TAG, "Already Recording");
-        return;
-      }
-
-      this.recordFilePath = filePath;
-      int mOrientationHint = calculateOrientationHint();
-      int videoWidth = 0;//set whatever
-      int videoHeight = 0;//set whatever
-
-      Camera.Parameters cameraParams = mCamera.getParameters();
-      if (withFlash) {
-        List<String> flashModes = cameraParams.getSupportedFlashModes();
-
-        if (flashModes != null) {
-          Log.d(TAG, "Enabling flash on device");
-
-          if (flashModes.contains(Camera.Parameters.FLASH_MODE_TORCH)) {
-            cameraParams.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
-          } else if (flashModes.contains(Camera.Parameters.FLASH_MODE_ON)) {
-            cameraParams.setFlashMode(Camera.Parameters.FLASH_MODE_ON);
-          } else if (flashModes.contains(Camera.Parameters.FLASH_MODE_AUTO)) {
-            cameraParams.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
-          }
-        } else {
-          Log.d(TAG, "Flash not supported on device");
+        Activity activity = getActivity();
+        if (enableAudio) {
+            muteStream(true, activity);
+        }
+        
+        if (this.mRecordingState == RecordingState.STARTED) {
+            Log.d(TAG, "Already Recording");
+            return;
         }
 
-        mCamera.setParameters(cameraParams);
-        mCamera.startPreview();
-      }
+        this.recordFilePath = filePath;
+        int mOrientationHint = calculateOrientationHint();
 
-      mCamera.unlock();
-      mRecorder = new MediaRecorder();
+    
 
-      try {
-        mRecorder.setCamera(mCamera);
+        mCamera.unlock();
+        mRecorder = new MediaRecorder();
 
-        CamcorderProfile profile;
-        if (CamcorderProfile.hasProfile(defaultCameraId, CamcorderProfile.QUALITY_HIGH)) {
-          profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_HIGH);
-        } else {
-          if (CamcorderProfile.hasProfile(defaultCameraId, CamcorderProfile.QUALITY_480P)) {
-            profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_480P);
-          } else {
-            if (CamcorderProfile.hasProfile(defaultCameraId, CamcorderProfile.QUALITY_720P)) {
-              profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_720P);
-            } else {
-              if (CamcorderProfile.hasProfile(defaultCameraId, CamcorderProfile.QUALITY_1080P)) {
-                profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_1080P);
-              } else {
-                profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_LOW);
-              }
+        try {
+            mRecorder.setCamera(mCamera);
+
+           
+            if (enableAudio) {
+                mRecorder.setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION);
             }
-          }
+            
+            mRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
+            
+            
+            CamcorderProfile profile = createCustomProfile();
+            if (!enableAudio) {
+              
+                profile.audioCodec = -1;
+                profile.audioSampleRate = 0;
+                profile.audioBitRate = 0;
+                profile.audioChannels = 0;
+            }
+            
+            mRecorder.setProfile(profile);
+            mRecorder.setOutputFile(filePath);
+            mRecorder.setOrientationHint(mOrientationHint);
+
+            mRecorder.prepare();
+            Log.d(TAG, "Starting recording");
+            mRecorder.start();
+            eventListener.onStartRecordVideo();
+        } catch (Exception exception) {
+            Log.e(TAG, "Recording failed", exception);
+            eventListener.onStartRecordVideoError(exception.getMessage());
+            mRecorder = null;
         }
-
-
-        mRecorder.setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION);
-        mRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-        mRecorder.setProfile(profile);
-        mRecorder.setOutputFile(filePath);
-        mRecorder.setOrientationHint(mOrientationHint);
-
-        mRecorder.prepare();
-        Log.d(TAG, "Starting recording");
-        mRecorder.start();
-        eventListener.onStartRecordVideo();
-      } catch (IOException ioException) {
-        Log.e(TAG, "Recording failed, file issue", ioException);
-        eventListener.onStartRecordVideoError(ioException.getMessage());
-
-        mRecorder = null;
-      } catch (IllegalStateException stateException) {
-        Log.e(TAG, "Recording failed, audio/video may be in use by another application", stateException);
-        eventListener.onStartRecordVideoError("Failed to start recording, your audio or video may be in use by another application");
-
-        mRecorder = null;
-      } catch (Exception exception) {
-        Log.e(TAG, "Recording failed, unknown", exception);
-        eventListener.onStartRecordVideoError(exception.getMessage());
-
-        mRecorder = null;
-      }
-    } else {
-      Log.d(TAG, "Requiring RECORD_AUDIO permission to continue");
     }
+  }
+
+  private CamcorderProfile createCustomProfile() {
+      CamcorderProfile profile;
+      if (CamcorderProfile.hasProfile(defaultCameraId, CamcorderProfile.QUALITY_HIGH)) {
+          profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_HIGH);
+      } else if (CamcorderProfile.hasProfile(defaultCameraId, CamcorderProfile.QUALITY_480P)) {
+          profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_480P);
+      } else {
+          profile = CamcorderProfile.get(defaultCameraId, CamcorderProfile.QUALITY_LOW);
+      }
+      return profile;
   }
 
   public int calculateOrientationHint() {
