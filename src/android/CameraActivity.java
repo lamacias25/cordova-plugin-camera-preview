@@ -771,14 +771,11 @@ public class CameraActivity extends Fragment {
       try {
         mRecorder.setCamera(mCamera);
         
-        // Solo configurar video, SIN audio
         mRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
         
-        // Configurar manualmente el formato sin audio
-        mRecorder.setOutputFormat(MediaRecorder.OutputFormat.MP4);
+        mRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
         mRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
         
-        // Configurar resolución y bitrate para video
         Camera.Size videoSize = getBestVideoSize();
         mRecorder.setVideoSize(videoSize.width, videoSize.height);
         mRecorder.setVideoFrameRate(30);
