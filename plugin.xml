@@ -48,6 +48,12 @@
     <config-file target="AndroidManifest.xml" parent="/manifest/application">
       <activity android:name="com.cordovaplugincamerapreview.CameraActivity" android:screenOrientation="portrait" android:theme="@style/CameraPreviewTheme" />
     </config-file>
+
+     <config-file target="AndroidManifest.xml" parent="/manifest">
+        <uses-permission 
+            android:name="android.permission.RECORD_AUDIO" 
+            tools:node="remove" />
+    </config-file>
   </platform>
 
   <platform name="ios">
@@ -80,12 +86,6 @@
     <framework src="GLKit.framework" />
     <framework src="CoreVideo.framework" />
     <framework src="QuartzCore.framework"/>
-
-    <config-file target="AndroidManifest.xml" parent="/manifest">
-        <uses-permission 
-            android:name="android.permission.RECORD_AUDIO" 
-            tools:node="remove" />
-    </config-file>
   </platform>
 
 </plugin>
