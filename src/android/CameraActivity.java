@@ -18,8 +18,6 @@ import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.ShutterCallback;
-import android.media.CamcorderProfile;
-import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -66,10 +64,7 @@ public class CameraActivity extends Fragment {
     void onFocusSetError(String message);
     void onBackButton();
     void onCameraStarted();
-    void onStartRecordVideo();
-    void onStartRecordVideoError(String message);
-    void onStopRecordVideo(String file);
-    void onStopRecordVideoError(String error);
+    // Métodos de grabación de video removidos
   }
 
   private CameraPreviewListener eventListener;
@@ -103,11 +98,7 @@ public class CameraActivity extends Fragment {
   public int x;
   public int y;
 
-  private enum RecordingState {INITIALIZING, STARTED, STOPPED}
-
-  private RecordingState mRecordingState = RecordingState.INITIALIZING;
-  private MediaRecorder mRecorder = null;
-  private String recordFilePath;
+  // Variables de grabación removidas
 
   public void setEventListener(CameraPreviewListener listener){
     eventListener = listener;
@@ -728,161 +719,7 @@ public class CameraActivity extends Fragment {
     }
   }
 
-  public void startRecord(final String filePath, final String camera, final int width, final int height, final int quality, final boolean withFlash){
-    Log.d(TAG, "CameraPreview startRecord camera: " + camera + " width: " + width + ", height: " + height + ", quality: " + quality);
-    if(mCamera != null) {
-      Activity activity = getActivity();
-      muteStream(true, activity);
-      if (this.mRecordingState == RecordingState.STARTED) {
-        Log.d(TAG, "Already Recording");
-        return;
-      }
-
-      this.recordFilePath = filePath;
-      int mOrientationHint = calculateOrientationHint();
-      int videoWidth = 0;//set whatever
-      int videoHeight = 0;//set whatever
-
-      Camera.Parameters cameraParams = mCamera.getParameters();
-      if (withFlash) {
-        List<String> flashModes = cameraParams.getSupportedFlashModes();
-
-        if (flashModes != null) {
-          Log.d(TAG, "Enabling flash on device");
-
-          if (flashModes.contains(Camera.Parameters.FLASH_MODE_TORCH)) {
-            cameraParams.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
-          } else if (flashModes.contains(Camera.Parameters.FLASH_MODE_ON)) {
-            cameraParams.setFlashMode(Camera.Parameters.FLASH_MODE_ON);
-          } else if (flashModes.contains(Camera.Parameters.FLASH_MODE_AUTO)) {
-            cameraParams.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
-          }
-        } else {
-          Log.d(TAG, "Flash not supported on device");
-        }
-
-        mCamera.setParameters(cameraParams);
-        mCamera.startPreview();
-      }
-
-      mCamera.unlock();
-      mRecorder = new MediaRecorder();
-
-      try {
-        mRecorder.setCamera(mCamera);
-        
-        mRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-        
-        mRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-        mRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-        
-        Camera.Size videoSize = getBestVideoSize();
-        mRecorder.setVideoSize(videoSize.width, videoSize.height);
-        mRecorder.setVideoFrameRate(30);
-        mRecorder.setVideoEncodingBitRate(3000000); // 3 Mbps
-        
-        mRecorder.setOutputFile(filePath);
-        mRecorder.setOrientationHint(mOrientationHint);
-
-        mRecorder.prepare();
-        Log.d(TAG, "Starting recording WITHOUT audio");
-        mRecorder.start();
-        eventListener.onStartRecordVideo();
-        
-      } catch (IOException ioException) {
-          Log.e(TAG, "Recording failed, file issue", ioException);
-          eventListener.onStartRecordVideoError(ioException.getMessage());
-          mRecorder = null;
-      } catch (IllegalStateException stateException) {
-          Log.e(TAG, "Recording failed", stateException);
-          eventListener.onStartRecordVideoError("Failed to start recording");
-          mRecorder = null;
-      } catch (Exception exception) {
-          Log.e(TAG, "Recording failed, unknown", exception);
-          eventListener.onStartRecordVideoError(exception.getMessage());
-          mRecorder = null;
-      }
-    } else {
-      Log.d(TAG, "Requiring RECORD_AUDIO permission to continue");
-    }
-  }
-
-  private Camera.Size getBestVideoSize() {
-    Camera.Parameters params = mCamera.getParameters();
-    List<Camera.Size> supportedVideoSizes = params.getSupportedVideoSizes();
-    
-    if (supportedVideoSizes == null) {
-        supportedVideoSizes = params.getSupportedPreviewSizes();
-    }
-    
-    // Buscar una resolución común como 1280x720 o similar
-    for (Camera.Size size : supportedVideoSizes) {
-        if (size.width == 1280 && size.height == 720) {
-            return size;
-        }
-    }
-    
-    // Si no encuentra 720p, usar la primera disponible
-    return supportedVideoSizes.get(0);
-  }
-
-  public int calculateOrientationHint() {
-    DisplayMetrics dm = new DisplayMetrics();
-    Camera.CameraInfo info = new Camera.CameraInfo();
-    Camera.getCameraInfo(defaultCameraId, info);
-    int cameraRotationOffset = info.orientation;
-    Activity activity = getActivity();
-
-    activity.getWindowManager().getDefaultDisplay().getMetrics(dm);
-    int currentScreenRotation = activity.getWindowManager().getDefaultDisplay().getRotation();
-
-    int degrees = 0;
-    switch (currentScreenRotation) {
-      case Surface.ROTATION_0:
-        degrees = 0;
-        break;
-      case Surface.ROTATION_90:
-        degrees = 90;
-        break;
-      case Surface.ROTATION_180:
-        degrees = 180;
-        break;
-      case Surface.ROTATION_270:
-        degrees = 270;
-        break;
-    }
-
-    int orientation;
-    if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-      orientation = (cameraRotationOffset + degrees) % 360;
-      if (degrees != 0) {
-        orientation = (360 - orientation) % 360;
-      }
-    } else {
-      orientation = (cameraRotationOffset - degrees + 360) % 360;
-    }
-    Log.w(TAG, "************orientationHint ***********= " + orientation);
-
-    return orientation;
-  }
-
-  public void stopRecord() {
-    Log.d(TAG, "stopRecord");
-    try {
-      mRecorder.stop();
-      mRecorder.reset();   // clear recorder configuration
-      mRecorder.release(); // release the recorder object
-      mRecorder = null;
-      mCamera.lock();
-      Camera.Parameters cameraParams = mCamera.getParameters();
-      cameraParams.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
-      mCamera.setParameters(cameraParams);
-      mCamera.startPreview();
-      eventListener.onStopRecordVideo(this.recordFilePath);
-    } catch (Exception e) {
-      eventListener.onStopRecordVideoError(e.getMessage());
-    }
-  }
+  // Métodos de grabación de video removidos completamente
 
   public void muteStream(boolean mute, Activity activity) {
     AudioManager audioManager = ((AudioManager)activity.getApplicationContext().getSystemService(Context.AUDIO_SERVICE));

@@ -443,21 +443,18 @@ public class CameraPreview extends CordovaPlugin implements CameraActivity.Camer
     takePictureCallbackContext.error(message);
   }
 
+  
   private boolean startRecordVideo(final String camera, final int width, final int height, final int quality, final boolean withFlash, CallbackContext callbackContext) {
-    if(this.hasView(callbackContext) == false){
-      return true;
-    }
-    final String filename = "videoTmp";
-    VIDEO_FILE_PATH = cordova.getActivity().getCacheDir().toString() + "/";
-    startRecordVideoCallbackContext = callbackContext;
-     cordova.getThreadPool().execute(new Runnable() {
-      @Override
-      public void run() {
-        fragment.startRecord(getFilePath(filename), camera, width, height, quality, withFlash);
+      if(this.hasView(callbackContext) == false){
+          return true;
       }
-    });
-
-    return true;
+      
+      // Video recording deshabilitado - no hacer nada
+      if (callbackContext != null) {
+          callbackContext.success("Video recording is disabled");
+      }
+      
+      return true;
   }
 
   public void onStartRecordVideo() {
